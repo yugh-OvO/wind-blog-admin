@@ -92,14 +92,14 @@
   const menuOptions = ref<MenuRecord[]>([]);
 
   const fetchData = async (
-    params: RoleParams = { ...pagination, ...formModel.value }
+    params: RoleParams = { ...basePagination, ...formModel.value }
   ) => {
     setLoading(true);
     try {
       const { data } = await roleList(params);
       renderData.value = data.list;
-      pagination.current = params.current;
-      pagination.total = data.total;
+      basePagination.current = params.current;
+      basePagination.total = data.total;
     } catch (err) {
       // you can report use errorHandler or other
     } finally {
@@ -119,24 +119,24 @@
   };
 
   const search = () => {
-    pagination.current = 1;
+    basePagination.current = 1;
     fetchData();
   };
 
   const onPageChange = (current: number) => {
-    pagination.current = current;
+    basePagination.current = current;
     fetchData();
   };
 
   const onPageSizeChange = (pageSize: number) => {
-    pagination.current = 1;
-    pagination.pageSize = pageSize;
+    basePagination.current = 1;
+    basePagination.pageSize = pageSize;
     fetchData();
   };
 
   const reset = () => {
     formModel.value = generateFormModel();
-    pagination.current = 1;
+    basePagination.current = 1;
     search();
   };
 

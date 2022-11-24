@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <a-card class="general-card" title="操作日志">
+    <a-card class="general-card" title="文章管理">
       <a-row>
         <a-col :flex="1">
           <a-form
@@ -8,31 +8,21 @@
             :label-col-props="{ span: 6 }"
             :wrapper-col-props="{ span: 18 }"
             label-align="left"
-            :auto-label-width="true"
           >
-            <a-row :gutter="50">
+            <a-row :gutter="20">
               <a-col :span="8">
-                <a-form-item field="title" label="系统模块">
-                  <a-input
-                    v-model="formModel.title"
-                    placeholder="请输入系统模块"
-                    :allow-clear="true"
-                  />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item field="name" label="操作人员">
+                <a-form-item field="name" label="文章名称">
                   <a-input
                     v-model="formModel.name"
-                    placeholder="请输入操作人员"
+                    placeholder="请输入文章名称"
                     :allow-clear="true"
                   />
                 </a-form-item>
               </a-col>
               <a-col :span="8">
-                <a-form-item field="operationTimeRange" label="操作时间">
+                <a-form-item field="createTimeRange" label="发布时间">
                   <a-range-picker
-                    v-model="formModel.operationTimeRange"
+                    v-model="formModel.createTimeRange"
                     style="width: 100%"
                   />
                 </a-form-item>
@@ -59,6 +49,14 @@
         </a-col>
       </a-row>
       <a-divider style="margin-top: 0" />
+      <a-row style="margin-bottom: 16px">
+        <a-button type="primary" @click="detail(0)">
+          <template #icon>
+            <icon-plus />
+          </template>
+          新增
+        </a-button>
+      </a-row>
       <a-table
         row-key="id"
         :loading="loading"
@@ -66,42 +64,45 @@
         :data="renderData"
         :bordered="false"
         @page-change="onPageChange"
-        @page-size-change="onPageSizeChange"
       >
         <template #columns>
-          <a-table-column title="系统模块" data-index="title" />
-          <a-table-column title="操作类型" data-index="operatorType">
-            <template #cell="{ record }">
-              <a-tag :color="typeTag[record.businessType]">{{
-                typeText[record.businessType]
-              }}</a-tag>
-            </template>
-          </a-table-column>
-          <a-table-column title="请求方式" data-index="requestMethod" />
-          <a-table-column title="操作人员" data-index="name" />
-          <a-table-column title="ip" data-index="ip" />
-          <a-table-column title="地点" data-index="location" />
-          <a-table-column title="操作时间" data-index="operationTime" />
+          <a-table-column title="文章编号" data-index="id" />
+          <a-table-column title="名称" data-index="title" />
           <a-table-column title="状态" data-index="status">
             <template #cell="{ record }">
               <span v-if="record.status === 1" class="circle pass" />
               <span v-else class="circle warn" />
-              {{ record.status === 1 ? '成功' : '失败' }}
+              {{ record.status === 1 ? '显示' : '隐藏' }}
             </template>
           </a-table-column>
+          <a-table-column title="发布时间" data-index="createTime" />
           <a-table-column title="操作" data-index="operations">
             <template #cell="{ record }">
-              <a-link @click="detail(record.param, record.jsonResult)">
-                详情
-              </a-link>
+              <span class="table-button" @click="detail(record.id)">
+                编辑
+              </span>
+              <a-popconfirm
+                v-if="record.status === 1"
+                content="确定要隐藏此文章吗?"
+                @ok="changeStatus(record.id, 2)"
+              >
+                <span class="table-button"> 隐藏 </span>
+              </a-popconfirm>
+              <a-popconfirm
+                v-else
+                content="确定要显示此文章吗?"
+                @ok="changeStatus(record.id, 1)"
+              >
+                <span class="table-button"> 显示 </span>
+              </a-popconfirm>
             </template>
           </a-table-column>
         </template>
       </a-table>
     </a-card>
     <Detail
-      :json-result="currentJsonResult"
-      :param="currentParam"
+      :id="currentId"
+      :category-options="categoryOptions"
       :visible="detailVisible"
       @call-back="detailCallBack"
     />
@@ -112,80 +113,59 @@
   import { ref, reactive } from 'vue';
   import useLoading from '@/hooks/loading';
   import { Pagination } from '@/types/global';
+  import { Message } from '@arco-design/web-vue';
   import {
-    operationLogList,
-    OperationLogRecord,
-    OperationLogParams,
-  } from '@/api/operation-log';
+    articleList,
+    ArticleRecord,
+    ArticleParams,
+    changeArticleStatus,
+    getArticleCategoryOptions,
+  } from '@/api/article';
   import Detail from './detail.vue';
 
   const generateFormModel = () => {
     return {
+      createTimeRange: [],
       name: '',
-      title: '',
-      operationTimeRange: [],
     };
   };
 
-  const typeText: string[] = [
-    '其他',
-    '新增',
-    '修改',
-    '删除',
-    '授权',
-    '导出',
-    '导入',
-    '强退',
-    '生成代码',
-    '清空',
-  ];
-  const typeTag: string[] = [
-    'gray',
-    'lime',
-    'purple',
-    'magenta',
-    'cyan',
-    'green',
-    'blue',
-    'red',
-    'orange',
-    'gold',
-  ];
-
+  const currentId = ref(0);
   const detailVisible = ref(false);
   const { loading, setLoading } = useLoading(true);
-  const renderData = ref<OperationLogRecord[]>([]);
+  const renderData = ref<ArticleRecord[]>([]);
   const formModel = ref(generateFormModel());
-  const currentParam = ref('');
-  const currentJsonResult = ref('');
 
-  const pagination = reactive({
+  const categoryOptions = ref([]);
+
+  const basePagination: Pagination = {
     current: 1,
     pageSize: 20,
-    total: 0,
-    hideOnSinglePage: true,
-    showTotal: true,
-    showJumper: true,
-    showPageSize: true,
+  };
+
+  const pagination = reactive({
+    ...basePagination,
   });
 
   const fetchData = async (
-    params: OperationLogParams = {
-      current: pagination.current,
-      pageSize: pagination.pageSize,
-      ...formModel.value,
-    }
+    params: ArticleParams = { ...pagination, ...formModel.value }
   ) => {
     setLoading(true);
     try {
-      const { data } = await operationLogList(params);
+      const { data } = await articleList(params);
       renderData.value = data.list;
+      pagination.current = params.current;
       pagination.total = data.total;
     } catch (err) {
       // you can report use errorHandler or other
     } finally {
       setLoading(false);
     }
+  };
+
+  const getCategoryOptions = async () => {
+    const { data } = await getArticleCategoryOptions();
+    categoryOptions.value = data;
   };
 
   const search = () => {
@@ -198,12 +178,6 @@
     fetchData();
   };
 
-  const onPageSizeChange = (pageSize: number) => {
-    pagination.current = 1;
-    pagination.pageSize = pageSize;
-    fetchData();
-  };
-
   const reset = () => {
     formModel.value = generateFormModel();
     pagination.current = 1;
@@ -211,19 +185,39 @@
   };
 
   fetchData();
+  getCategoryOptions();
 
-  const detail = (param: string, jsonResult: string) => {
-    currentParam.value = param;
-    currentJsonResult.value = jsonResult;
+  const detail = (id: number) => {
+    currentId.value = id;
     detailVisible.value = true;
   };
-  const detailCallBack = () => {
+  const detailCallBack = (fresh: boolean) => {
+    currentId.value = 0;
     detailVisible.value = false;
+    if (fresh) {
+      fetchData();
+    }
+  };
+  const changeStatus = (id: number, status: number) => {
+    changeArticleStatus(id, status).then(() => {
+      Message.success('操作成功');
+      search();
+    });
   };
 </script>
 
 <style scoped lang="less">
   .container {
     padding: 20px;
+  }
+
+  .table-button {
+    margin-right: 12px;
+    color: rgb(var(--arcoblue-6));
+    cursor: pointer;
+
+    &:hover {
+      color: rgb(var(--arcoblue-5));
+    }
   }
 </style>
