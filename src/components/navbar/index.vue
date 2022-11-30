@@ -71,6 +71,12 @@
           </a-avatar>
           <template #content>
             <a-doption>
+              <a-space @click="profile">
+                <icon-user />
+                <span> 个人信息 </span>
+              </a-space>
+            </a-doption>
+            <a-doption>
               <a-space @click="password">
                 <icon-lock />
                 <span> 修改密码 </span>
@@ -95,8 +101,10 @@
   import { useDark, useToggle, useFullscreen } from '@vueuse/core';
   import { useAppStore, useUserStore } from '@/store';
   import useUser from '@/hooks/user';
+  import { useRouter } from 'vue-router';
   import Password from './password.vue';
 
+  const router = useRouter();
   const appStore = useAppStore();
   const userStore = useUserStore();
   const { logout } = useUser();
@@ -136,6 +144,9 @@
   };
   const password = () => {
     passwordVisible.value = true;
+  };
+  const profile = () => {
+    router.push('/profile/list');
   };
 </script>
 
